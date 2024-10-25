@@ -9,6 +9,7 @@ import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.PasswordField;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.router.Route;
+import jakarta.validation.constraints.NotEmpty;
 import org.vaadin.firitin.form.BeanValidationForm;
 import org.vaadin.firitin.form.FormBinder;
 
@@ -19,7 +20,7 @@ import java.util.Map;
 @Route
 public class BeanValidationBinderWithRecordView extends BeanValidationForm<BeanValidationBinderWithRecordView.Account> {
 
-    record Account(String username, String password, String passwordVerification) {}
+    record Account(@NotEmpty String username, String password, String passwordVerification) {}
 
     TextField username = new TextField("Username");
     PasswordField password = new PasswordField("Password");
@@ -28,8 +29,12 @@ public class BeanValidationBinderWithRecordView extends BeanValidationForm<BeanV
     public BeanValidationBinderWithRecordView() {
         super(Account.class);
         setSavedHandler(account -> {
-            Notification.show("All fine, do stuff with things:" + account);
+            if(isValid()) {
+                Notification.show("All fine, do stuff with things:" + account);
+            }
         });
+        boolean valid = getBinder().isValid();
+        adjustSaveButtonState();
     }
 
     @Override
