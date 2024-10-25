@@ -56,6 +56,11 @@ public class PagingGrid<T> extends VGrid<T> {
         init();
     }
 
+    public PagingGrid(Class<T> beanType, boolean autoCreateColumns) {
+        super(beanType, autoCreateColumns);
+        init();
+    }
+
     public PagingGrid(int pageSize) {
         super(pageSize);
         init();
@@ -80,6 +85,10 @@ public class PagingGrid<T> extends VGrid<T> {
     protected void preparePaginationBar() {
         if (paginationBar == null) {
             paginationBar = new PaginationBar(null);
+        }
+        if(getColumns().isEmpty()) {
+            // no columns yet, we'll add the pagination bar later
+            return;
         }
         // TODO remove existing header/footer row when this gets fixed
         // https://github.com/vaadin/flow-components/issues/1538

@@ -64,6 +64,16 @@ public class VGrid<T> extends Grid<T>
     }
 
     public VGrid(Class<T> beanType) {
+        this(beanType, true);
+    }
+
+    /**
+     * Creates a new Grid with given bean type.
+     *
+     * @param beanType the bean/record type
+     * @param autoCreateColumns if true, columns are created automatically for all introspected properties
+     */
+    public VGrid(Class<T> beanType, boolean autoCreateColumns) {
         // Make Grid skip column detection, we can do better work here
         super(beanType, false);
         // Now lets get columns with Jackson, and pick the missing ones for records
@@ -72,8 +82,10 @@ public class VGrid<T> extends Grid<T>
         }
         JavaType javaType = dummyOm.getTypeFactory().constructType(beanType);
         this.bbd = (BasicBeanDescription) dummyOm.getSerializationConfig().introspect(javaType);
-        List<String> propertyNames = bbd.findProperties().stream().map(BeanPropertyDefinition::getName).toList();
-        setColumns(propertyNames.toArray(new String[0]));
+        if(autoCreateColumns) {
+            List<String> propertyNames = bbd.findProperties().stream().map(BeanPropertyDefinition::getName).toList();
+            setColumns(propertyNames.toArray(new String[0]));
+        }
     }
 
     @Override
