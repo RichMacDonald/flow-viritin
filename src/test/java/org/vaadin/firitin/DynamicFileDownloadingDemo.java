@@ -105,14 +105,23 @@ public class DynamicFileDownloadingDemo extends VerticalLayout {
         
         add(downloadButton2);
 
+        add(new Button("Ping", e-> Notification.show("Pong")));
 
-        UI ui = UI.getCurrent();
-        ui.setPollInterval(500); // simulate Push, not needed if using Push
+
         downloadThatNotifiesWhenReady = new DynamicFileDownloader("Download that notifies the UI when finished", "foobar/",
                 outputStream -> {
                     outputStream.write("HelloWorld".getBytes());
+                    try {
+                        Thread.sleep(10*1000);
+                    } catch (InterruptedException e) {
+                        throw new RuntimeException(e);
+                    }
+                    outputStream.write("Remainings...".getBytes());
                 }
         );
+        downloadThatNotifiesWhenReady.addDownloadStartedListener(e-> {
+            Notification.show("Download is now started, but it might take time (artificial slowness for demo).");
+        });
         downloadThatNotifiesWhenReady.addDownloadFinishedListener(e->{
             Notification.show("Download is now finished");
             // you could do something else here as well, like removing the downloader
@@ -129,24 +138,25 @@ public class DynamicFileDownloadingDemo extends VerticalLayout {
                 });
         disableOnClick.setDisableOnClick(true);
         disableOnClick.addDownloadFinishedListener(e-> {
+            UI ui = UI.getCurrent();
+            int pollInterval = ui.getPollInterval();
+            ui.setPollInterval(1000); // push or poll needed for this example
             new Thread() {
                 @Override
                 public void run() {
                     try {
-                        Thread.sleep(10000);
+                        Thread.sleep(3000);
                     } catch (InterruptedException ex) {
                         ex.printStackTrace();
                     }
-                    disableOnClick.getUI().ifPresent(ui -> {
-                           ui.access(() -> disableOnClick.setEnabled(true));
+                    ui.access(()-> {
+                       disableOnClick.setEnabled(true);
+                       ui.setPollInterval(pollInterval);
                     });
                 }
             }.start();
         });
         add(disableOnClick);
-
-
-        UI.getCurrent().setPollInterval(500);
 
         actaulButtonLikeDownloadButton = new DynamicFileDownloader("Download foobar.txt (should fail in Chrome)", "foobar.txt",
                 outputStream -> {

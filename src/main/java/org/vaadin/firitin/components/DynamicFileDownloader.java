@@ -16,6 +16,7 @@
 package org.vaadin.firitin.components;
 
 import com.vaadin.flow.component.AttachEvent;
+import com.vaadin.flow.component.ClientCallable;
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.ComponentEvent;
 import com.vaadin.flow.component.ComponentEventListener;
@@ -46,6 +47,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import com.vaadin.flow.shared.Registration;
+import jakarta.servlet.http.Cookie;
 import org.vaadin.firitin.components.button.VButton;
 import org.vaadin.firitin.fluency.ui.FluentComponent;
 import org.vaadin.firitin.fluency.ui.FluentHasEnabled;
@@ -75,6 +77,9 @@ public class DynamicFileDownloader extends Anchor implements
     private SerializableConsumer<OutputStream> contentWriter;
     private Integer originalPollingInterval;
     private boolean newWindow;
+    private UI ui;
+    private boolean hasFinishedListeners;
+    private boolean hasStartedListeners;
 
     /**
      * Constructs a basic download link with DOWNLOAD icon from
@@ -180,6 +185,12 @@ public class DynamicFileDownloader extends Anchor implements
         }
     }
 
+    @ClientCallable
+    private void ping() {
+        // Nothing to do here, possible errors & listener invocations should now be synced
+        // if Push is not enabled
+    }
+
     private void setWriter(ContentWriter contentWriter) {
         this.contentWriter = out -> {
             try {
@@ -193,6 +204,7 @@ public class DynamicFileDownloader extends Anchor implements
     @Override
     protected void onAttach(AttachEvent attachEvent) {
         super.onAttach(attachEvent);
+        ui = attachEvent.getUI();
         prepareRequestHandler(attachEvent);
     }
 
@@ -205,6 +217,11 @@ public class DynamicFileDownloader extends Anchor implements
             requestHandler = new RequestHandler() {
                 @Override
                 public boolean handleRequest(VaadinSession session, VaadinRequest request, VaadinResponse response) throws IOException {
+                    if(hasStartedListeners) {
+                        ui.access(() -> {
+                            DynamicFileDownloader.this.getEventBus().fireEvent(new DownloadStartedEvent(DynamicFileDownloader.this, false));
+                        });
+                    }
                     String id = request.getParameter("id");
                     if (id != null && id.equals(identifier)) {
                         response.setStatus(200);
@@ -214,6 +231,14 @@ public class DynamicFileDownloader extends Anchor implements
                         }
                         response.setHeader("Content-Disposition", (newWindow ? "" : "attachment;") + "filename*=UTF-8''" + URLEncoder.encode(filename, StandardCharsets.UTF_8));
                         response.setHeader("Content-Type", contentTypeGenerator.getContentType());
+                        // Set a cookie to indicate that the file has been downloaded, browser registers after the
+                        // download is complete, and we can then hit the server (from the client) to check for possible
+                        // errors and UI modifications
+                        Cookie marker = new Cookie("filedownloadmarker-" + id, "filewritten");
+                        marker.setPath("/");
+                        // Client side ought to clear this (if attached), but set a reasonable max age anyways...
+                        marker.setMaxAge(60*60);
+                        response.addCookie(marker);
                         try {
                             contentWriter.accept(response.getOutputStream());
                         } catch (Exception e) {
@@ -228,9 +253,11 @@ public class DynamicFileDownloader extends Anchor implements
                             e.printStackTrace();
                             return true;
                         }
-                        getUI().ifPresent(ui -> ui.access(() -> {
-                            DynamicFileDownloader.this.getEventBus().fireEvent(new DownloadFinishedEvent(DynamicFileDownloader.this, false));
-                        }));
+                        if(hasFinishedListeners) {
+                            ui.access(() -> {
+                                DynamicFileDownloader.this.getEventBus().fireEvent(new DownloadFinishedEvent(DynamicFileDownloader.this, false));
+                            });
+                        }
                         return true;
                     }
                     return false;
@@ -257,9 +284,32 @@ public class DynamicFileDownloader extends Anchor implements
                 session.addRequestHandler(requestHandler);
             }
             getElement().executeJs("""
+                const id = '%s';
                 this.setAttribute("href",
                         this.getAttribute("fakesr").substring(0, this.getAttribute("fakesr").indexOf("VAADIN"))
-                                + "?v-r=dfd&id=%s");
+                                + "?v-r=dfd&id=" + id);
+                
+                this.onclick = e=> {
+
+                    if(this.downloadStartedListener) {
+                        setTimeout(() => {
+                            this.$server.ping();
+                        }, 100);
+                    }
+                    
+                    // start an interval that checks if a cookie with identifier has been set,
+                    // if so, stop interval, hit server for possible errors & UI modifications
+                    this.interval = setInterval(() => {
+                        if(document.cookie.indexOf(id + '=filewritten') > -1) {
+                            var d = new Date();
+                            d.setDate(d.getDate() - 1);
+                            var expires = ";expires=" + d;
+                            document.cookie = "filedownloadmarker-"+ id + "=registered" + expires + "; path=/";
+                            clearInterval(this.interval);
+                            this.$server.ping();
+                        }
+                    }, 1000);
+                }
                 """.formatted(identifier));
         } else {
             getElement().executeJs("this.removeAttribute('href');");
@@ -277,7 +327,7 @@ public class DynamicFileDownloader extends Anchor implements
             if (ui.getPushConfiguration().getPushMode().isEnabled()) {
                 return;
             }
-            if (ui.getPollInterval() < POLLING_INTERVAL) {
+            if (false && ui.getPollInterval() < POLLING_INTERVAL) {
                 Logger.getLogger(DynamicFileDownloader.class.getName()).log(Level.INFO, "The UI don't have push enabled, DynamicFileDownloader setting polling interval to " + POLLING_INTERVAL + "ms to make listeners work as expected. Consider enabling push.");
                 originalPollingInterval = ui.getPollInterval();
                 ui.setPollInterval(POLLING_INTERVAL);
@@ -308,15 +358,25 @@ public class DynamicFileDownloader extends Anchor implements
 
     /**
      * Adds a listener that is executed when the file content has been streamed.
-     * Note that the UI changes done in the listener don't necessarily happen
-     * live if you don't have @{@link com.vaadin.flow.component.page.Push} in
-     * use or use {@link UI#setPollInterval(int)} method.
      *
      * @param listener the listener
      * @return the {@link Registration} you can use to remove this listener.
      */
     public Registration addDownloadFinishedListener(ComponentEventListener<DownloadFinishedEvent> listener) {
+        hasFinishedListeners = true;
         return addListener(DownloadFinishedEvent.class, listener);
+    }
+
+    /**
+     * Adds a listener that is executed when the file content streaming has started.
+     *
+     * @param listener the listener
+     * @return the {@link Registration} you can use to remove this listener.
+     */
+    public Registration addDownloadStartedListener(ComponentEventListener<DownloadStartedEvent> listener) {
+        hasStartedListeners = true;
+        getElement().setProperty("downloadStartedListener", true);
+        return addListener(DownloadStartedEvent.class, listener);
     }
 
     /**
@@ -529,6 +589,25 @@ public class DynamicFileDownloader extends Anchor implements
          *                   client
          */
         public DownloadFinishedEvent(DynamicFileDownloader source, boolean fromClient) {
+            super(source, fromClient);
+        }
+
+    }
+
+    /**
+     * Event fired when the file download has been streamed to the client.
+     */
+    public static class DownloadStartedEvent extends ComponentEvent<DynamicFileDownloader> {
+
+        /**
+         * Creates a new event using the given source and indicator whether the
+         * event originated from the client side or the server side.
+         *
+         * @param source     the source component
+         * @param fromClient <code>true</code> if the event originated from the
+         *                   client
+         */
+        public DownloadStartedEvent(DynamicFileDownloader source, boolean fromClient) {
             super(source, fromClient);
         }
 
