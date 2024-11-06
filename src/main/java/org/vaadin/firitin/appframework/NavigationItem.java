@@ -35,6 +35,11 @@ public class NavigationItem extends SideNavItem {
             if(!me.enabled()) {
                 setEnabled(false);
             }
+        } else if(navigationTarget.isAnnotationPresent(Menu.class)) {
+            Menu menu = navigationTarget.getAnnotation(Menu.class);
+            if(menu.icon() != null) {
+                setPrefixComponent(new Icon(menu.icon()));
+            }
         }
         this.navigationTarget = navigationTarget;
     }

@@ -9,7 +9,7 @@ import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.router.Menu;
 import org.vaadin.firitin.components.RichText;
 
-@Menu(order = MenuItem.END, title = "Menu annotation"/*, icon = "" TODO what to add here!?!  */)
+@Menu(order = MenuItem.END, title = "Menu annotation", icon = "vaadin:airplane" /* TODO what to add here!?!  */)
 public class ViewViaVaadinAnnotation extends MyAbstractView {
 
     @Override
