@@ -10,6 +10,7 @@ import com.vaadin.flow.component.html.H2;
 import com.vaadin.flow.component.html.Header;
 import com.vaadin.flow.component.orderedlayout.Scroller;
 import com.vaadin.flow.component.sidenav.SideNav;
+import com.vaadin.flow.component.sidenav.SideNavItem;
 import com.vaadin.flow.router.AfterNavigationEvent;
 import com.vaadin.flow.router.AfterNavigationObserver;
 import com.vaadin.flow.router.Menu;
@@ -21,8 +22,10 @@ import org.jetbrains.annotations.NotNull;
 
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -44,9 +47,28 @@ import java.util.logging.Logger;
  */
 public abstract class MainLayout extends AppLayout implements AfterNavigationObserver {
 
+    public static class AdvancedSideNav extends SideNav {
+
+        public void addSubMenu(AdvancedSideNav subMenu) {
+            // This seems to work, although probably not supported really
+            getElement().appendChild(subMenu.getElement());
+        }
+
+        public void addNavigationItem(NavigationItem item) {
+            if (item instanceof SubMenu) {
+                addSubMenu((SubMenu) item);
+            } else {
+                addItem((SideNavItem) item);
+            }
+        }
+    }
+
+
+
     private H2 viewTitle;
-    private SideNav menu;
-    private List<NavigationItem> navigationItems = new ArrayList<>();
+    private AdvancedSideNav menu;
+    //private List<NavigationItem> navigationItems = new ArrayList<>();
+    private Map<Class<?>, NavigationItem> targetToItem = new HashMap<>();
     private Stack<Component> viewStack = new Stack<>();
     private Map<Component, String> explicitViewTitles = new WeakHashMap<>();
 
@@ -79,13 +101,13 @@ public abstract class MainLayout extends AppLayout implements AfterNavigationObs
         addToDrawer(header, scroller, prepareFooter());
     }
 
-    protected SideNav prepareNav() {
+    protected AdvancedSideNav prepareNav() {
         // SideNav is a production-ready official component under a feature flag.
         // However, it has accessibility issues and is missing some features.
         // Both will be addressed in an upcoming minor version.
         // These changes are likely to cause some breaking change to the custom css
         // applied to the component.
-        SideNav nav = new SideNav();
+        AdvancedSideNav nav = new AdvancedSideNav();
         this.menu = nav;
         return nav;
     }
@@ -101,7 +123,7 @@ public abstract class MainLayout extends AppLayout implements AfterNavigationObs
 
     @Override
     protected void onAttach(AttachEvent attachEvent) {
-        if (navigationItems.isEmpty()) {
+        if (targetToItem.isEmpty()) {
             init();
         }
         super.onAttach(attachEvent);
@@ -118,7 +140,7 @@ public abstract class MainLayout extends AppLayout implements AfterNavigationObs
         }).forEach(rd -> {
             Class<? extends Component> routeClass = rd.getNavigationTarget();
             if (!Modifier.isAbstract(routeClass.getModifiers())) {
-                navigationItems.add(new NavigationItem(routeClass));
+                addNavigationItem(new BasicNavigationItem(routeClass));
             }
         });
 
@@ -127,13 +149,7 @@ public abstract class MainLayout extends AppLayout implements AfterNavigationObs
             try {
 
                 event.getRemovedRoutes().forEach(route -> {
-                    Iterator<NavigationItem> iterator = navigationItems.iterator();
-                    while (iterator.hasNext()) {
-                        NavigationItem item = iterator.next();
-                        if (item.getNavigationTarget() == route.getNavigationTarget()) {
-                            iterator.remove();
-                        }
-                    }
+                    targetToItem.remove(route.getNavigationTarget());
                 });
                 // UI access used to support reload by JRebel etc
                 MainLayout.this.getUI().ifPresent(ui -> {
@@ -155,12 +171,10 @@ public abstract class MainLayout extends AppLayout implements AfterNavigationObs
                         }).forEach(rd -> {
                             Class<? extends Component> routeClass = rd.getNavigationTarget();
                             if (!Modifier.isAbstract(routeClass.getModifiers()) && routeClass != null) {
-                                navigationItems.add(new NavigationItem(routeClass));
+                                addNavigationItem(new BasicNavigationItem(routeClass));
                             }
                         });
-                        sortMenuItems();
                         buildMenu();
-
                     });
                 });
             } catch (Exception e) {
@@ -171,13 +185,30 @@ public abstract class MainLayout extends AppLayout implements AfterNavigationObs
 
         });
 
-        sortMenuItems();
-
         buildMenu();
     }
 
-    protected void sortMenuItems() {
+    private void addNavigationItem(NavigationItem item) {
+        MenuItem annotation = item.getNavigationTarget().getAnnotation(MenuItem.class);
+        if(annotation != null && annotation.parent() != MenuItem.NO_PARENT) {
+            NavigationItem parentItem = ensureParentItem(annotation.parent());
+            item.setParentItem(parentItem);
+        }
+        targetToItem.put(item.getNavigationTarget(), item);
+    }
 
+    private NavigationItem ensureParentItem(Class<?> parent) {
+        return targetToItem.computeIfAbsent(parent, p -> {
+            if(Component.class.isAssignableFrom(parent)) {
+                return new BasicNavigationItem((Class<? extends Component>) parent);
+            } else {
+                // This is a group item, not a view
+                return new SubMenu(parent);
+            }
+        });
+    }
+
+    protected void sortMenuItems(List<NavigationItem> navigationItems) {
         Collections.sort(navigationItems, new Comparator<NavigationItem>() {
 
             @Override
@@ -220,14 +251,15 @@ public abstract class MainLayout extends AppLayout implements AfterNavigationObs
     }
 
     /**
-     * @return A List of {@link NavigationItem} objects to be shown in the menu.
+     * @return A List of {@link BasicNavigationItem} objects to be shown in the menu.
      * After modifying these manually, call {@link #buildMenu()} to update the
      * screen.
      */
     public List<NavigationItem> getNavigationItems() {
-        if (navigationItems.isEmpty()) {
+        if (targetToItem.isEmpty()) {
             init();
         }
+        List<NavigationItem> navigationItems = new ArrayList<>(targetToItem.values());
         return navigationItems;
     }
 
@@ -239,8 +271,20 @@ public abstract class MainLayout extends AppLayout implements AfterNavigationObs
      * behavior in UI.access method.
      */
     public void buildMenu() {
+
+        List<NavigationItem> navigationItems = new ArrayList<>(targetToItem.values().stream()
+                .filter(ni -> ni.getParentItem() == null).toList());
+
+        sortMenuItems(navigationItems);
+
         menu.removeAll();
-        navigationItems.stream().filter(this::checkAccess).forEach(menu::addItem);
+        navigationItems.stream().filter(this::checkAccess).forEach(item -> {
+            menu.addNavigationItem(item);
+            // possible sub-items
+            List<NavigationItem> subItems = new ArrayList<>(targetToItem.values().stream().filter(ni -> ni.getParentItem() == item).toList());
+            sortMenuItems(subItems);
+            subItems.forEach(item::addSubItem);
+        });
     }
 
     /**
@@ -271,11 +315,8 @@ public abstract class MainLayout extends AppLayout implements AfterNavigationObs
 
     private void updateSelectedNavigationItem() {
         getNavigationItems().forEach(i -> {
-            if (i.getNavigationTarget() == getContent().getClass()) {
-                i.getElement().setAttribute("active", true);
-            } else {
-                i.getElement().removeAttribute("active");
-            }
+            // TODO check if this is still needed, there was some bugs fixed in Vaadin at some point
+            i.setActive(i.getNavigationTarget() == getContent().getClass());
         });
     }
 

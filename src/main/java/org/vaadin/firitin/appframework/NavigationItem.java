@@ -1,56 +1,21 @@
 package org.vaadin.firitin.appframework;
 
-import com.vaadin.flow.component.Component;
-import com.vaadin.flow.component.html.ListItem;
-import com.vaadin.flow.component.html.Span;
-import com.vaadin.flow.component.icon.Icon;
-import com.vaadin.flow.component.sidenav.SideNavItem;
-import com.vaadin.flow.dom.Style;
+import com.vaadin.flow.component.HasStyle;
 import com.vaadin.flow.router.Menu;
 import com.vaadin.flow.router.PageTitle;
-import com.vaadin.flow.router.RouterLink;
 import org.apache.commons.lang3.StringUtils;
 
 import java.lang.annotation.Annotation;
 
-/**
- * A component to represent a main view in the navigation menu
- */
-public class NavigationItem extends SideNavItem {
-    private final Class<? extends Component> navigationTarget;
-    private final String text;
-    private String path;
-    private boolean disabled = false;
-
-    public NavigationItem(Class<? extends Component> navigationTarget) {
-        super(null, navigationTarget);
-        getStyle().setDisplay(Style.Display.BLOCK); // TODO WTF?
-        text = getMenuTextFromClass(navigationTarget);
-        setLabel(text);
-        MenuItem me = navigationTarget.getAnnotation(MenuItem.class);
-        if (me != null) {
-            if(me.icon() != null) {
-                setPrefixComponent(new Icon(me.icon()));
-            }
-            if(!me.enabled()) {
-                setEnabled(false);
-            }
-        } else if(navigationTarget.isAnnotationPresent(Menu.class)) {
-            Menu menu = navigationTarget.getAnnotation(Menu.class);
-            if(menu.icon() != null) {
-                setPrefixComponent(new Icon(menu.icon()));
-            }
-        }
-        this.navigationTarget = navigationTarget;
-    }
-
+public interface NavigationItem extends HasStyle {
     /**
      * Detects a menu item text for a view class, based on various annotations and falling back to genearing one from
      * the class name.
+     *
      * @param navigationTarget the view class
      * @return string used in the menu/breadcrump for the view
      */
-    public static String getMenuTextFromClass(Class<? extends Component> navigationTarget) {
+    static String getMenuTextFromClass(Class<?> navigationTarget) {
         final String text;
         MenuItem me = getAnnotationFromType(navigationTarget, MenuItem.class);
         if (me != null && !me.title().isEmpty()) {
@@ -64,7 +29,7 @@ public class NavigationItem extends SideNavItem {
                 if (title == null) {
                     String simpleName = navigationTarget.getSimpleName();
                     // weld proxy
-                    if(simpleName.endsWith("_Subclass")) {
+                    if (simpleName.endsWith("_Subclass")) {
                         simpleName = simpleName.substring(0, simpleName.length() - "_Subclass".length());
                     }
                     if (simpleName.endsWith("View")) {
@@ -79,10 +44,10 @@ public class NavigationItem extends SideNavItem {
         return text;
     }
 
-    private static <A extends Annotation> A getAnnotationFromType(Class<?> classType, final Class<A> annotationClass) {
-       while ( !classType.getName().equals(Object.class.getName()) ) {
+    static <A extends Annotation> A getAnnotationFromType(Class<?> classType, Class<A> annotationClass) {
+        while (!classType.getName().equals(Object.class.getName())) {
 
-            if ( classType.isAnnotationPresent(annotationClass)) {
+            if (classType.isAnnotationPresent(annotationClass)) {
                 return classType.getAnnotation(annotationClass);
             }
             classType = classType.getSuperclass();
@@ -90,34 +55,16 @@ public class NavigationItem extends SideNavItem {
         return null;
     }
 
-    public String getText() {
-        return text;
-    }
+    String getText();
 
-    public Class<? extends Component> getNavigationTarget() {
-        return navigationTarget;
-    }
+    Class<?> getNavigationTarget();
 
-    @Override
-    public void setPath(String path) {
-        this.path = path;
-        if(!disabled) {
-            super.setPath(path);
-        }
-    }
+    boolean isEnabled();
 
-    public void setEnabled(boolean enabled) {
-        this.disabled = !enabled;
-        if(disabled) {
-            super.setPath((String) null);
-        } else if (path != null) {
-            super.setPath(path);
-        }
-        String color = enabled ? "" : "gray";
-        getStyle().setColor(color);
-    }
+    void setActive(boolean active);
 
-    public boolean isEnabled() {
-        return !disabled;
-    }
+    void addSubItem(NavigationItem item);
+
+    void setParentItem(NavigationItem basicNavigationItem);
+    NavigationItem getParentItem();
 }

@@ -14,6 +14,7 @@ public @interface MenuItem {
     public static final int END = Integer.MAX_VALUE;
     public static final int BEGINNING = 0;
     public static final int DEFAULT = 1000;
+    public static final Class<?> NO_PARENT = Class.class;
 
     /**
      * @return true if the menu item should be enabled in
@@ -29,4 +30,19 @@ public @interface MenuItem {
     
     public VaadinIcon icon() default VaadinIcon.FILE;
 
+    /**
+     * @return the parent view class in the menu hierarchy. Defaults to MenuItem.NO_PARENT
+     * (Class.class) which means this is a top level view.
+     */
+    public Class<?> parent() default Class.class;
+
+    /**
+     * @return true if this (parent) view should be open by default in the menu
+     */
+    boolean openByDefault() default false;
+
+    /**
+     * @return true if this (parent) view should be collapsible in the menu (in case it is a grouping item)
+     */
+    boolean collapsible() default true;
 }

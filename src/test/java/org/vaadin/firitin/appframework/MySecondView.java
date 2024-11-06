@@ -10,7 +10,7 @@ public class MySecondView extends MyAbstractView {
         add(new Paragraph("Second content"));
 
         add(new Button("Toggle fourth", e-> {
-            NavigationItem item = findAncestor(MyMainLayout.class).getNavigationItems().get(3);
+            BasicNavigationItem item = (BasicNavigationItem) findAncestor(MyMainLayout.class).getNavigationItems().get(3);
             item.setEnabled(!item.isEnabled());
         }));
 
