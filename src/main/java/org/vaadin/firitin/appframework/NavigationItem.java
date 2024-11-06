@@ -6,6 +6,7 @@ import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.sidenav.SideNavItem;
 import com.vaadin.flow.dom.Style;
+import com.vaadin.flow.router.Menu;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.RouterLink;
 import org.apache.commons.lang3.StringUtils;
@@ -50,19 +51,24 @@ public class NavigationItem extends SideNavItem {
         if (me != null && !me.title().isEmpty()) {
             text = me.title();
         } else {
-            PageTitle title = getAnnotationFromType(navigationTarget, PageTitle.class);
-            if (title == null) {
-                String simpleName = navigationTarget.getSimpleName();
-                // weld proxy
-                if(simpleName.endsWith("_Subclass")) {
-                    simpleName = simpleName.substring(0, simpleName.length() - "_Subclass".length());
-                }
-                if (simpleName.endsWith("View")) {
-                    simpleName = simpleName.substring(0, simpleName.length() - 4);
-                }
-                text = StringUtils.join(StringUtils.splitByCharacterTypeCamelCase(simpleName), ' ');
+            Menu menu = getAnnotationFromType(navigationTarget, Menu.class);
+            if (menu != null && !menu.title().isEmpty()) {
+                text = menu.title();
             } else {
-                text = title.value();
+                PageTitle title = getAnnotationFromType(navigationTarget, PageTitle.class);
+                if (title == null) {
+                    String simpleName = navigationTarget.getSimpleName();
+                    // weld proxy
+                    if(simpleName.endsWith("_Subclass")) {
+                        simpleName = simpleName.substring(0, simpleName.length() - "_Subclass".length());
+                    }
+                    if (simpleName.endsWith("View")) {
+                        simpleName = simpleName.substring(0, simpleName.length() - 4);
+                    }
+                    text = StringUtils.join(StringUtils.splitByCharacterTypeCamelCase(simpleName), ' ');
+                } else {
+                    text = title.value();
+                }
             }
         }
         return text;

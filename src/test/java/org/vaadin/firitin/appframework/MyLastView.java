@@ -8,7 +8,7 @@ import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 
 @MenuItem(order = MenuItem.END, icon = VaadinIcon.ACADEMY_CAP, enabled = false)
-public class MyFourthView extends MyAbstractView {
+public class MyLastView extends MyAbstractView {
 
     @Override
     protected void onAttach(AttachEvent attachEvent) {

@@ -12,10 +12,12 @@ import com.vaadin.flow.component.orderedlayout.Scroller;
 import com.vaadin.flow.component.sidenav.SideNav;
 import com.vaadin.flow.router.AfterNavigationEvent;
 import com.vaadin.flow.router.AfterNavigationObserver;
+import com.vaadin.flow.router.Menu;
 import com.vaadin.flow.router.RouteBaseData;
 import com.vaadin.flow.router.RouteConfiguration;
 import com.vaadin.flow.router.RouterLayout;
 import com.vaadin.flow.theme.lumo.LumoUtility;
+import org.jetbrains.annotations.NotNull;
 
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
@@ -43,6 +45,10 @@ import java.util.logging.Logger;
 public abstract class MainLayout extends AppLayout implements AfterNavigationObserver {
 
     private H2 viewTitle;
+    private SideNav menu;
+    private List<NavigationItem> navigationItems = new ArrayList<>();
+    private Stack<Component> viewStack = new Stack<>();
+    private Map<Component, String> explicitViewTitles = new WeakHashMap<>();
 
     public MainLayout() {
 //		getElement().getClassList().add("v-applayout");
@@ -92,14 +98,6 @@ public abstract class MainLayout extends AppLayout implements AfterNavigationObs
         Footer layout = new Footer();
         return layout;
     }
-
-    private SideNav menu;
-
-    private List<NavigationItem> navigationItems = new ArrayList<>();
-
-    private Stack<Component> viewStack = new Stack<>();
-
-    private Map<Component, String> explicitViewTitles = new WeakHashMap<>();
 
     @Override
     protected void onAttach(AttachEvent attachEvent) {
@@ -184,21 +182,39 @@ public abstract class MainLayout extends AppLayout implements AfterNavigationObs
 
             @Override
             public int compare(NavigationItem o1, NavigationItem o2) {
-                MenuItem a1 = o1.getNavigationTarget().
-                        getAnnotation(MenuItem.class);
-                MenuItem a2 = o2.getNavigationTarget().
-                        getAnnotation(MenuItem.class);
-                if (a1 == null && a2 == null) {
+                Double order1 = getOrder1(o1);
+                Double order2 = getOrder1(o2);
+                double d = order1 - order2;
+                if (d == 0) {
                     return o1.getText().compareTo(o2.getText());
                 } else {
-                    int order1 = a1 == null ? MenuItem.DEFAULT : a1.order();
-                    int order2 = a2 == null ? MenuItem.DEFAULT : a2.order();
-                    if (order1 == order2) {
-                        return o1.getText().compareTo(o2.getText());
+                    // who on earth got the idea to use double for ordering in the @Menu annotation!?
+                    if (d < 0) {
+                        return -1;
+                    } else if (d > 0) {
+                        return 1;
                     } else {
-                        return order1 - order2;
+                        return o1.getText().compareTo(o2.getText());
                     }
                 }
+            }
+
+            private static @NotNull Double getOrder1(NavigationItem o1) {
+                MenuItem a1 = o1.getNavigationTarget().
+                        getAnnotation(MenuItem.class);
+                Double order1;
+                if (a1 != null) {
+                    order1 = (double) a1.order();
+                } else {
+                    Menu av1 = o1.getNavigationTarget().
+                            getAnnotation(Menu.class);
+                    if (av1 != null) {
+                        order1 = av1.order();
+                    } else {
+                        order1 = (double) MenuItem.DEFAULT;
+                    }
+                }
+                return order1;
             }
         });
     }
@@ -218,7 +234,7 @@ public abstract class MainLayout extends AppLayout implements AfterNavigationObs
     /**
      * This method can be called to re-build the menu, if e.g. views has been
      * added, removed or otherwise changed.
-     *
+     * <p>
      * If you have dynamically added/removed views from another thread, wrap the
      * behavior in UI.access method.
      */
