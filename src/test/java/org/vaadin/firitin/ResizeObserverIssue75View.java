@@ -15,6 +15,7 @@ public class ResizeObserverIssue75View extends VVerticalLayout {
         add(size);
 
         var paragraph = new Paragraph("Lazy attached paragraph");
+        paragraph.setWidthFull();
 
         ResizeObserver.get()
                 .observe(paragraph, d -> size.setText(d.toString()));

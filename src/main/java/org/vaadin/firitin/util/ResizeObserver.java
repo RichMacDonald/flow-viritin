@@ -107,12 +107,24 @@ public class ResizeObserver {
         for(Component c : additionalComponentsToObserve) {
             if(!components.contains(c)) {
                 components.add(c);
-                el.executeJs("""
+                Runnable register = () -> {
+                    el.executeJs("""
                     this._resizeObserverElements.push($0);
                     this._resizeObserver.observe($0);
                 """, c.getElement()).then(jsonvalue -> {}, s -> {
-                    throw new RuntimeException("Error adding size observer, component not attached!?");
-                });
+                        throw new RuntimeException("Error adding size observer, component not attached!?");
+                    });
+
+                };
+                if(c.isAttached()) {
+                    register.run();
+                } else {
+                    c.addAttachListener(e -> {
+                        register.run();
+                        e.unregisterListener();
+                    });
+                }
+
             }
         }
         return this;
