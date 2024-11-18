@@ -1,4 +1,4 @@
-package org.vaadin.firitin;
+package org.vaadin.firitin.resizeobserver;
 
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.html.Div;

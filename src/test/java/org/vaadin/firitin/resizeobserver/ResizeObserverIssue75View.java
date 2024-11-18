@@ -1,4 +1,4 @@
-package org.vaadin.firitin;
+package org.vaadin.firitin.resizeobserver;
 
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.html.Paragraph;
