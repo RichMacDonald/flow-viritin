@@ -16,8 +16,13 @@ public abstract class ResizeObserverView<C extends Component & HasComponents> ex
     protected ResizeObserverView() {
         super();
         getResizeObserver().observe(getContent(), dimensions -> {
-            System.out.println("Height: " + dimensions.height());
-            System.out.println("Width: " + dimensions.width());
+            boolean attached = isAttached();
+            if(!attached) {
+                // This should not happen !?
+                System.out.println(getClass().getSimpleName() +" is not attached");
+            }
+            System.out.println(getClass().getSimpleName() + "(" + hashCode() + ")" +" Height: " + dimensions.height());
+            System.out.println(getClass().getSimpleName() +" Width: " + dimensions.width());
         });
     }
 
@@ -26,7 +31,7 @@ public abstract class ResizeObserverView<C extends Component & HasComponents> ex
         var content = super.initContent();
         try {
             Thread.sleep(500); // Simulate database query or longer reflective operation
-            content.add(new Text("foo"));
+            content.add(new Text(getClass().getSimpleName()));
         }
         catch (InterruptedException e) {
             e.printStackTrace();
