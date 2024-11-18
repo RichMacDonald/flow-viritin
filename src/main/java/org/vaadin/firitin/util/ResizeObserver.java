@@ -64,7 +64,7 @@ public class ResizeObserver {
                 const resizeObserver = new ResizeObserver((entries) => {
                   const sizes = {};
                   for (const entry of entries) {
-                    if (entry.contentBoxSize) {
+                    if (entry.target.isConnected && entry.contentBoxSize) {
                       const idx = el._resizeObserverElements.indexOf(entry.target);
                       const contentBoxSize = entry.contentBoxSize[0];
                       sizes[idx] = JSON.stringify(entry.contentRect);
