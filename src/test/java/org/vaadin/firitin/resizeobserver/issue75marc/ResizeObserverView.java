@@ -1,5 +1,7 @@
 package org.vaadin.firitin.resizeobserver.issue75marc;
 
+import com.vaadin.flow.component.html.Div;
+import org.vaadin.firitin.rad.PrettyPrinter;
 import org.vaadin.firitin.util.ResizeObserver;
 
 import com.vaadin.flow.component.Component;
@@ -8,6 +10,7 @@ import com.vaadin.flow.component.HasComponents;
 import com.vaadin.flow.component.Text;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.router.Route;
+import org.vaadin.firitin.util.style.LumoProps;
 
 public abstract class ResizeObserverView<C extends Component & HasComponents> extends Composite<C> {
 
@@ -23,7 +26,22 @@ public abstract class ResizeObserverView<C extends Component & HasComponents> ex
             }
             System.out.println(getClass().getSimpleName() + "(" + hashCode() + ")" +" Height: " + dimensions.height());
             System.out.println(getClass().getSimpleName() +" Width: " + dimensions.width());
+            getSizeDiv().add(PrettyPrinter.toVaadin(dimensions));
         });
+    }
+
+    Div sizeDiv;
+
+    Div getSizeDiv() {
+        if(sizeDiv == null) {
+            sizeDiv = new Div();
+            sizeDiv.setHeight("320px");
+            sizeDiv.getStyle().setBackgroundColor(LumoProps.CONTRAST_5PCT.var());
+            sizeDiv.getStyle().setPadding("1em");
+        }
+        sizeDiv.removeAll();
+        sizeDiv.add("View dimensions:");
+        return sizeDiv;
     }
 
     @Override
@@ -32,6 +50,7 @@ public abstract class ResizeObserverView<C extends Component & HasComponents> ex
         try {
             Thread.sleep(500); // Simulate database query or longer reflective operation
             content.add(new Text(getClass().getSimpleName()));
+            content.add(getSizeDiv());
         }
         catch (InterruptedException e) {
             e.printStackTrace();
@@ -46,17 +65,17 @@ public abstract class ResizeObserverView<C extends Component & HasComponents> ex
         return resizeObserver;
     }
 
-    @Route(value = "resize1", layout = MainLayout.class)
+    @Route(layout = MainLayout.class)
     public static class ResizeObserver1View extends ResizeObserverView<VerticalLayout> {
 
     }
 
-    @Route(value = "resize2", layout = MainLayout.class)
+    @Route(layout = MainLayout.class)
     public static class ResizeObserver2View extends ResizeObserverView<VerticalLayout> {
 
     }
 
-    @Route(value = "resize3", layout = MainLayout.class)
+    @Route(layout = MainLayout.class)
     public static class ResizeObserver3View extends ResizeObserverView<VerticalLayout> {
 
     }
