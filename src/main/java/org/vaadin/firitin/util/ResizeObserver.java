@@ -37,14 +37,14 @@ import java.util.logging.Logger;
  * </p>
  * <p>
  *     There are two ways to listen to size changes:
- *     <ul>
- *         <li>Using the {@link #addResizeListener(Component, ComponentEventListener)} method, which is a Vaadin core
- *         style API, the listener gets {@link SizeChangeEvent}. and the return value is a {@link Registration} you can
- *         use to stop listening.</li>
- *         <li>Using the {@link #observe(Component, SizeChangeListener)} method, your listener simply receives the
- *         {@link Dimensions} of the listened component.</li>
- *     </ul>
  * </p>
+ * <ul>
+ *     <li>Using the {@link #addResizeListener(Component, ComponentEventListener)} method, which is a Vaadin core
+ *     style API, the listener gets {@link SizeChangeEvent}. and the return value is a {@link Registration} you can
+ *     use to stop listening.</li>
+ *     <li>Using the {@link #observe(Component, SizeChangeListener)} method, your listener simply receives the
+ *     {@link Dimensions} of the listened component.</li>
+ * </ul>
  */
 public class ResizeObserver {
 
