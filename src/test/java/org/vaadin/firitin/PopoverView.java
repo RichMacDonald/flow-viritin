@@ -93,8 +93,10 @@ public class PopoverView extends VerticalLayout {
                 // The popover can be preconfigured via getter, instance is then created already
                 // but the actual content (commonly the heavy part) is still postponed to UI interraction
                 // If you want to avoid creation of the popover instance beforehand, do these in click listener instead
-                getPopover().setWidth("30vw");
-                getPopover().setHeight("45vh"); // optimally Popover would have implicit max height
+                addClickListener(() -> {
+                    getPopover().setWidth("30vw");
+                    getPopover().setHeight("45vh"); // optimally Popover would have implicit max height
+                });
             }
 
             public static class ActionButton extends Button {
