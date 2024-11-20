@@ -40,6 +40,14 @@ public class PopoverButton extends VButton {
      */
     public void open() {
         getPopover().open();
+        getPopover().addOpenedChangeListener(e -> {
+            if (!e.isOpened()) {
+                // The popover might be left to the DOM forever if not removed.
+                // We can safely do cleanup here, a new popower will be created if needed.
+                popover.removeFromParent();
+                popover = null;
+            }
+        });
     }
 
     /**
